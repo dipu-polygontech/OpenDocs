@@ -1,0 +1,7 @@
+{
+  "commands": [
+    {"argv": ["git", "status", "--short"], "permission": "read"},
+    {"argv": ["git", "diff", "--check"], "permission": "read"},
+    {"argv": ["python3", "-m", "unittest", "discover", "-s", "agentic/kit/runtime/tests"], "permission": "run_check"}
+  ]
+}

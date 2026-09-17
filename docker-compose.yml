@@ -1,0 +1,45 @@
+services:
+  android:
+    build: ./docker
+    image: flutter_box
+    container_name: android-emulator
+    privileged: true
+    tty: true
+    volumes:
+      - .:/workspace
+      - android-sdk:/root/.android
+    ports:
+      - "5037:5037" # adb server
+      - "5555:5555" # emulator tcp
+    command: ["/bin/sh","-c","adb -a nodaemon server start && sleep infinity"]
+    restart: unless-stopped
+
+  flutter:
+    build: ./docker
+    image: flutter_box
+    container_name: flutter-dev
+    tty: true
+    volumes:
+      - .:/workspace
+      - android-sdk:/root/.android
+    working_dir: /workspace
+    depends_on:
+      - android
+    command: ["/bin/sh","-c","tail -f /dev/null"]
+    restart: unless-stopped
+
+  scrcpy-web:
+    image: "${SCRCPY_WEB_IMAGE:-shmayro/scrcpy-web:latest}"
+    container_name: scrcpy-web
+    depends_on:
+      - android
+    ports:
+      - "8081:8080"
+    environment:
+      - ADB_HOST=android
+      - ADB_PORT=5037
+    restart: unless-stopped
+
+volumes:
+  android-sdk:
+    name: android_sdk
