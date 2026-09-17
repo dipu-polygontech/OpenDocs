@@ -1,0 +1,34 @@
+module: app
+status: DRAFT
+confidence: PARTIAL
+paths:
+  frontend:
+    - lib/app
+    - lib/core/presentation
+    - lib/res
+  backend: []
+dependencies:
+  - get (GetX state management)
+  - dio
+  - firebase_core
+  - firebase_messaging
+  - flutter_dotenv
+  - shared_preferences
+apis: []
+database: []
+shared_components:
+  - lib/core/presentation/widgets
+  - lib/core/presentation/controllers
+  - lib/core/data/repositories
+tests: []
+known_risks:
+  - No test/ directory found at repo root — no automated test baseline yet
+  - No CI config found (.github absent) — checks are local/manual only
+  - README flags .env is bundled as a Flutter asset (readable if the APK is decompiled); must switch to compile-time injection before production
+  - lib/features is currently empty — repo is a fresh clean-architecture-getx scaffold (single commit), no feature modules built yet
+last_indexed_revision: 43255673aa311be661fee370d9bc08baf1d110c2
+evidence:
+  - pubspec.yaml (dependencies, SDK constraint >=3.2.3 <4.0.0)
+  - lib/ directory listing (app/core/features/res/services layout)
+  - README.md (env setup and production warning)
+  - git log -1 (single commit repo, greenfield)

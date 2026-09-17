@@ -1,7 +1,17 @@
-project: CHANGE_ME
-project_type: unknown
-context_status: MISSING
-repositories: []
-modules: []
-integrations: []
-last_indexed_revision: null
+project: customer
+project_type: greenfield
+context_status: PARTIAL
+repositories:
+  - https://github.com/dipu-polygontech/OpenDocs.git
+modules:
+  - app
+  - core
+  - features
+  - services
+integrations:
+  - getx (state management, ^4.7.3)
+  - dio (http client, ^5.9.2)
+  - firebase_core / firebase_messaging (push notifications)
+  - flutter_dotenv (runtime config; README flags this must move to compile-time injection before production)
+  - shared_preferences (local cache)
+last_indexed_revision: 43255673aa311be661fee370d9bc08baf1d110c2

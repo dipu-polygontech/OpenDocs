@@ -1,9 +1,13 @@
 system:
-  status: MISSING
+  status: PARTIAL
 modules:
   kit-runtime:
     status: AVAILABLE
     context_file: agentic/data/project-context/kit-runtime.json
+    freshness_strategy: scoped-file-sha256
+  app:
+    status: DRAFT
+    context_file: agentic/data/project-context/modules/app.yaml
     freshness_strategy: scoped-file-sha256
 # features:
 #   FEATURE-042:
