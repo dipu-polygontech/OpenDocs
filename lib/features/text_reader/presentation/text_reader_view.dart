@@ -3,18 +3,12 @@ import 'package:get/get.dart';
 
 import '../../../core/presentation/theme/theme_extensions.dart';
 import '../../../core/presentation/utils/state_status.dart';
-import '../../../core/presentation/widgets/cell_grid/cell_grid.dart';
 import '../../../core/presentation/widgets/loading_view/loading_view.dart';
-import 'excel_reader_controller.dart';
+import 'text_reader_controller.dart';
 
-/// BRD §9.12 Excel Reader Screen.
-///
-/// `excel_plus` (the parsing library, see `ExcelReaderController`'s own doc
-/// comment) ships no grid widget, so [CellGrid] - shared with the CSV reader
-/// since `FEATURE-OPENDOCS-P4` - is first-party OpenDocs UI built directly on
-/// its parsed cell model.
-class ExcelReaderView extends GetView<ExcelReaderController> {
-  const ExcelReaderView({super.key});
+/// BRD §9.14 Text Reader Screen.
+class TextReaderView extends GetView<TextReaderController> {
+  const TextReaderView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,19 +17,108 @@ class ExcelReaderView extends GetView<ExcelReaderController> {
       body: Obx(() {
         if (controller.status.value.isBusy) return const LoadingView();
         if (controller.status.value.isError) return _ReaderErrorView(controller: controller);
-        return Column(
-          children: [
-            Expanded(child: CellGrid(controller: controller, emptyMessage: 'Empty workbook')),
-            _SheetTabBar(controller: controller),
-          ],
-        );
+        return _TextBody(controller: controller);
       }),
     );
   }
 }
 
+class _TextBody extends StatefulWidget {
+  final TextReaderController controller;
+
+  const _TextBody({required this.controller});
+
+  @override
+  State<_TextBody> createState() => _TextBodyState();
+}
+
+class _TextBodyState extends State<_TextBody> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreInitialOffset());
+    widget.controller.scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() => widget.controller.onScrolled(widget.controller.scrollController.offset);
+
+  void _restoreInitialOffset() {
+    final controller = widget.controller;
+    if (controller.scrollController.hasClients && controller.initialScrollOffset > 0) {
+      final max = controller.scrollController.position.maxScrollExtent;
+      controller.scrollController.jumpTo(controller.initialScrollOffset.clamp(0.0, max));
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final lines = widget.controller.lines;
+      final query = widget.controller.searchQuery.value;
+      return ListView.builder(
+        controller: widget.controller.scrollController,
+        itemCount: lines.length,
+        itemBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          child: _TextLine(
+            text: lines[index],
+            fontSize: widget.controller.fontSize.value,
+            wrap: widget.controller.lineWrap.value,
+            highlightQuery: query,
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _TextLine extends StatelessWidget {
+  final String text;
+  final double fontSize;
+  final bool wrap;
+  final String highlightQuery;
+
+  const _TextLine({required this.text, required this.fontSize, required this.wrap, required this.highlightQuery});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(fontSize: fontSize);
+    final content = highlightQuery.isEmpty
+        ? Text(text, style: style, softWrap: wrap, overflow: wrap ? TextOverflow.visible : TextOverflow.clip)
+        : Text.rich(_highlighted(text, highlightQuery, style, context), softWrap: wrap, overflow: wrap ? TextOverflow.visible : TextOverflow.clip);
+    return wrap ? content : SingleChildScrollView(scrollDirection: Axis.horizontal, child: content);
+  }
+
+  TextSpan _highlighted(String text, String query, TextStyle style, BuildContext context) {
+    final lower = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+    final spans = <TextSpan>[];
+    var start = 0;
+    while (true) {
+      final index = lower.indexOf(lowerQuery, start);
+      if (index == -1) {
+        spans.add(TextSpan(text: text.substring(start)));
+        break;
+      }
+      if (index > start) spans.add(TextSpan(text: text.substring(start, index)));
+      spans.add(TextSpan(
+        text: text.substring(index, index + query.length),
+        style: TextStyle(backgroundColor: Colors.orange.withValues(alpha: 0.5)),
+      ));
+      start = index + query.length;
+    }
+    return TextSpan(style: style, children: spans);
+  }
+}
+
 class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final ExcelReaderController controller;
+  final TextReaderController controller;
 
   const _ReaderAppBar({required this.controller});
 
@@ -50,7 +133,7 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
             ? TextField(
                 autofocus: true,
                 style: context.titleMedium,
-                decoration: const InputDecoration(hintText: 'Search cells', border: InputBorder.none),
+                decoration: const InputDecoration(hintText: 'Search in document', border: InputBorder.none),
                 onChanged: controller.search,
               )
             : Text(controller.document.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -72,6 +155,9 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
           itemBuilder: (context) => const [
             PopupMenuItem(value: _ReaderAction.share, child: Text('Share')),
             PopupMenuItem(value: _ReaderAction.openWith, child: Text('Open With')),
+            PopupMenuItem(value: _ReaderAction.increaseFontSize, child: Text('Increase Text Size')),
+            PopupMenuItem(value: _ReaderAction.decreaseFontSize, child: Text('Decrease Text Size')),
+            PopupMenuItem(value: _ReaderAction.toggleLineWrap, child: Text('Toggle Line Wrap')),
           ],
         ),
       ],
@@ -85,14 +171,20 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
         controller.share();
       case _ReaderAction.openWith:
         controller.openWith();
+      case _ReaderAction.increaseFontSize:
+        controller.increaseFontSize();
+      case _ReaderAction.decreaseFontSize:
+        controller.decreaseFontSize();
+      case _ReaderAction.toggleLineWrap:
+        controller.toggleLineWrap();
     }
   }
 }
 
-enum _ReaderAction { share, openWith }
+enum _ReaderAction { share, openWith, increaseFontSize, decreaseFontSize, toggleLineWrap }
 
 class _SearchStatusBar extends StatelessWidget {
-  final ExcelReaderController controller;
+  final TextReaderController controller;
 
   const _SearchStatusBar({required this.controller});
 
@@ -129,46 +221,8 @@ class _SearchStatusBar extends StatelessWidget {
   }
 }
 
-class _SheetTabBar extends StatelessWidget {
-  final ExcelReaderController controller;
-
-  const _SheetTabBar({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      if (controller.sheetNames.length <= 1) return const SizedBox.shrink();
-      return Container(
-        height: 40,
-        color: context.surfaceContainer,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: controller.sheetNames.length,
-          itemBuilder: (context, index) {
-            final selected = index == controller.activeSheetIndex.value;
-            return InkWell(
-              onTap: () => controller.switchSheet(index),
-              child: Container(
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: selected ? context.primary : Colors.transparent, width: 2)),
-                ),
-                child: Text(
-                  controller.sheetNames[index],
-                  style: selected ? context.bodySmall?.copyWith(color: context.primary, fontWeight: FontWeight.bold) : context.bodySmall,
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    });
-  }
-}
-
 class _ReaderErrorView extends StatelessWidget {
-  final ExcelReaderController controller;
+  final TextReaderController controller;
 
   const _ReaderErrorView({required this.controller});
 

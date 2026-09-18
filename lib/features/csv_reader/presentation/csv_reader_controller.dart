@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:excel_plus/excel_plus.dart' as xls;
 import 'package:flutter/widgets.dart';
@@ -11,72 +12,75 @@ import '../../../core/domain/repositories/recent_repository.dart';
 import '../../../core/presentation/controllers/base_controller.dart';
 import '../../../core/presentation/controllers/document_interaction_controller.dart';
 import '../../../core/presentation/utils/state_status.dart';
+import '../../../core/presentation/utils/text_decoding.dart';
 import '../../../core/presentation/widgets/cell_grid/cell_grid_controller.dart';
 import '../../../core/presentation/widgets/cell_grid/cell_match.dart';
 
 export '../../../core/presentation/widgets/cell_grid/cell_match.dart' show CellMatch;
 
-/// Drives the Excel reader (BRD §9.12, ODF-015/016, ODF-008 for Excel).
+/// Drives the CSV reader (BRD §9.15, ODF-020, ODF-008 for CSV).
 ///
-/// `excel_plus` is a parser only - no grid widget ships with it (confirmed
-/// during `ARCHITECTURE.md`'s research: no adequate ready-made XLSX viewer
-/// widget exists on pub.dev). This controller owns the parsed workbook and
-/// exposes a plain row/column model; [CellGrid] (shared with the CSV reader
-/// since `FEATURE-OPENDOCS-P4`) builds the actual grid on top of it, the same
-/// "library gives primitives, OpenDocs builds the widget" pattern
-/// `PdfReaderView` used for PDF thumbnails.
+/// Parses via `excel_plus`'s `Excel.fromCsv` (already a dependency since
+/// `FEATURE-OPENDOCS-P3`) rather than a dedicated CSV library or a hand-rolled
+/// parser - it already handles BRD's hardest CSV corner cases (quoted commas,
+/// multi-line quoted values) as part of its own tested surface
+/// (`FEATURE-OPENDOCS-P4/ARCHITECTURE.md` Alternatives Considered).
 ///
-/// Fixed cell sizing ([CellGridController.cellWidth]/[CellGridController.cellHeight])
-/// is used for v1 rather than honoring each column's/row's actual stored
-/// width/height (BRD §9.12 lists "Row height"/"Column width" as Core
-/// Features) - a documented simplification (see the Phase 3 task doc), not a
-/// silent gap.
-class ExcelReaderController extends BaseController implements CellGridController {
+/// `Excel.fromCsv` has no isolate-friendly entry point (confirmed by reading
+/// `excel_plus`'s source - unlike its `.xlsx` path's `decodeBytesAsync`), so
+/// this controller wraps the parse call in its own `Isolate.run` rather than
+/// assuming the library keeps the UI thread responsive for a large CSV
+/// (`ARCHITECTURE.md` Risk 2). `Excel.decodeBytesAsync`'s own implementation
+/// confirms `Excel` objects are safe to hand back across an isolate boundary
+/// this way (via `Isolate.exit`, not a deep copy).
+///
+/// Reuses the same [CellGridController]/`CellGrid` the Excel reader uses
+/// (`FEATURE-OPENDOCS-P3/TASK-011`, extracted to be shared in this phase) -
+/// CSV has one implicit sheet, so there is no sheet-tab bar, but the row/
+/// column grid itself is identical.
+class CsvReaderController extends BaseController implements CellGridController {
+  /// Same posture as `TextReaderController.maxBytes`: a first-pass,
+  /// adjustable ceiling, not a BRD-specified number.
+  static const int maxBytes = 20 * 1024 * 1024;
+
   final DocumentModel document;
   final RecentRepository _recentRepository;
   final DocumentInteractionController _interactions;
 
-  ExcelReaderController({
+  CsvReaderController({
     required this.document,
     RecentRepository? recentRepository,
     DocumentInteractionController? interactions,
   })  : _recentRepository = recentRepository ?? RecentRepositoryImpl(),
         _interactions = interactions ?? Get.find<DocumentInteractionController>();
 
-  xls.Excel? _workbook;
-
-  final sheetNames = <String>[].obs;
-  final activeSheetIndex = 0.obs;
+  xls.Sheet? _sheet;
 
   final isSearching = false.obs;
   final searchQuery = ''.obs;
+  @override
   final matches = <CellMatch>[].obs;
+  @override
   final currentMatchIndex = (-1).obs;
 
+  @override
   final verticalController = ScrollController();
+  @override
   final horizontalController = ScrollController();
 
-  int _initialSheetIndex = 0;
   double _initialVerticalOffset = 0;
   double _initialHorizontalOffset = 0;
-  int get initialSheetIndex => _initialSheetIndex;
+  @override
   double get initialVerticalOffset => _initialVerticalOffset;
+  @override
   double get initialHorizontalOffset => _initialHorizontalOffset;
 
   Timer? _positionSaveDebounce;
 
-  xls.Sheet? get currentSheet {
-    final workbook = _workbook;
-    if (workbook == null || sheetNames.isEmpty) return null;
-    return workbook.sheets[sheetNames[activeSheetIndex.value]];
-  }
-
   @override
-  List<List<xls.Data?>> get currentRows => currentSheet?.rows ?? const [];
+  List<List<xls.Data?>> get currentRows => _sheet?.rows ?? const [];
   @override
-  int get columnCount => currentSheet?.maxColumns ?? 0;
-  int get frozenRows => currentSheet?.frozenRows ?? 0;
-  int get frozenColumns => currentSheet?.frozenColumns ?? 0;
+  int get columnCount => _sheet?.maxColumns ?? 0;
 
   @override
   void onInit() {
@@ -89,20 +93,24 @@ class ExcelReaderController extends BaseController implements CellGridController
     try {
       final positionResult = await _recentRepository.getPosition(document.id);
       positionResult.fold((_) {}, (position) {
-        final sheetIndex = position['sheet_index'];
-        if (sheetIndex is int && sheetIndex >= 0) _initialSheetIndex = sheetIndex;
         final vOffset = position['vertical_offset'];
         if (vOffset is num && vOffset > 0) _initialVerticalOffset = vOffset.toDouble();
         final hOffset = position['horizontal_offset'];
         if (hOffset is num && hOffset > 0) _initialHorizontalOffset = hOffset.toDouble();
       });
 
-      final bytes = await File(document.path).readAsBytes();
-      final workbook = await xls.Excel.decodeBytesAsync(bytes);
-      _workbook = workbook;
-      final names = workbook.sheetOrder;
-      sheetNames.assignAll(names);
-      activeSheetIndex.value = _initialSheetIndex < names.length ? _initialSheetIndex : 0;
+      final file = File(document.path);
+      final length = await file.length();
+      if (length > maxBytes) {
+        status.value = StateStatus.error;
+        errorMessage.value = 'This document is too large to render safely on this device.';
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
+      final csvText = decodeTextBytes(bytes);
+      final workbook = await Isolate.run(() => xls.Excel.fromCsv(csvText));
+      _sheet = workbook.sheets[workbook.getDefaultSheet()];
       status.value = StateStatus.success;
     } catch (e) {
       status.value = StateStatus.error;
@@ -110,18 +118,7 @@ class ExcelReaderController extends BaseController implements CellGridController
     }
   }
 
-  void switchSheet(int index) {
-    if (index < 0 || index >= sheetNames.length) return;
-    activeSheetIndex.value = index;
-    stopSearching();
-    _schedulePositionSave();
-  }
-
   void onScrolled() {
-    _schedulePositionSave();
-  }
-
-  void _schedulePositionSave() {
     _positionSaveDebounce?.cancel();
     _positionSaveDebounce = Timer(const Duration(seconds: 2), _savePosition);
   }
@@ -130,7 +127,6 @@ class ExcelReaderController extends BaseController implements CellGridController
     return _recentRepository.markOpened(
       document.id,
       readingPosition: {
-        'sheet_index': activeSheetIndex.value,
         'row': verticalController.hasClients ? (verticalController.offset / CellGridController.cellHeight).floor() : 0,
         'column': horizontalController.hasClients ? (horizontalController.offset / CellGridController.cellWidth).floor() : 0,
         'vertical_offset': verticalController.hasClients ? verticalController.offset : 0.0,
@@ -148,9 +144,9 @@ class ExcelReaderController extends BaseController implements CellGridController
     currentMatchIndex.value = -1;
   }
 
-  /// Linear scan over the active sheet's cells (ODF-016). Scoped to the
-  /// active sheet only, not the whole workbook - matching how every other
-  /// reader's search scopes to "this document", not "everything".
+  /// Linear scan over the parsed rows (ODF-020's search feature) - the same
+  /// shape as the Excel reader's cell search, since it operates on the
+  /// identical `Sheet`/`Data` model.
   void search(String query) {
     searchQuery.value = query;
     if (query.isEmpty) {
@@ -206,7 +202,7 @@ class ExcelReaderController extends BaseController implements CellGridController
   @override
   void onClose() {
     _positionSaveDebounce?.cancel();
-    if (_workbook != null) {
+    if (_sheet != null) {
       unawaited(_savePosition());
     }
     verticalController.dispose();

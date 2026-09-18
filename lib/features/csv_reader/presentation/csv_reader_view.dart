@@ -5,16 +5,13 @@ import '../../../core/presentation/theme/theme_extensions.dart';
 import '../../../core/presentation/utils/state_status.dart';
 import '../../../core/presentation/widgets/cell_grid/cell_grid.dart';
 import '../../../core/presentation/widgets/loading_view/loading_view.dart';
-import 'excel_reader_controller.dart';
+import 'csv_reader_controller.dart';
 
-/// BRD §9.12 Excel Reader Screen.
-///
-/// `excel_plus` (the parsing library, see `ExcelReaderController`'s own doc
-/// comment) ships no grid widget, so [CellGrid] - shared with the CSV reader
-/// since `FEATURE-OPENDOCS-P4` - is first-party OpenDocs UI built directly on
-/// its parsed cell model.
-class ExcelReaderView extends GetView<ExcelReaderController> {
-  const ExcelReaderView({super.key});
+/// BRD §9.15 CSV Reader Screen. Reuses [CellGrid], the same first-party grid
+/// the Excel reader uses (`FEATURE-OPENDOCS-P3/TASK-011`) - CSV has one
+/// implicit sheet, so there is no sheet-tab bar here.
+class CsvReaderView extends GetView<CsvReaderController> {
+  const CsvReaderView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,19 +20,14 @@ class ExcelReaderView extends GetView<ExcelReaderController> {
       body: Obx(() {
         if (controller.status.value.isBusy) return const LoadingView();
         if (controller.status.value.isError) return _ReaderErrorView(controller: controller);
-        return Column(
-          children: [
-            Expanded(child: CellGrid(controller: controller, emptyMessage: 'Empty workbook')),
-            _SheetTabBar(controller: controller),
-          ],
-        );
+        return CellGrid(controller: controller, emptyMessage: 'Empty file');
       }),
     );
   }
 }
 
 class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final ExcelReaderController controller;
+  final CsvReaderController controller;
 
   const _ReaderAppBar({required this.controller});
 
@@ -50,7 +42,7 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
             ? TextField(
                 autofocus: true,
                 style: context.titleMedium,
-                decoration: const InputDecoration(hintText: 'Search cells', border: InputBorder.none),
+                decoration: const InputDecoration(hintText: 'Search values', border: InputBorder.none),
                 onChanged: controller.search,
               )
             : Text(controller.document.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -92,7 +84,7 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
 enum _ReaderAction { share, openWith }
 
 class _SearchStatusBar extends StatelessWidget {
-  final ExcelReaderController controller;
+  final CsvReaderController controller;
 
   const _SearchStatusBar({required this.controller});
 
@@ -129,46 +121,8 @@ class _SearchStatusBar extends StatelessWidget {
   }
 }
 
-class _SheetTabBar extends StatelessWidget {
-  final ExcelReaderController controller;
-
-  const _SheetTabBar({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      if (controller.sheetNames.length <= 1) return const SizedBox.shrink();
-      return Container(
-        height: 40,
-        color: context.surfaceContainer,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: controller.sheetNames.length,
-          itemBuilder: (context, index) {
-            final selected = index == controller.activeSheetIndex.value;
-            return InkWell(
-              onTap: () => controller.switchSheet(index),
-              child: Container(
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: selected ? context.primary : Colors.transparent, width: 2)),
-                ),
-                child: Text(
-                  controller.sheetNames[index],
-                  style: selected ? context.bodySmall?.copyWith(color: context.primary, fontWeight: FontWeight.bold) : context.bodySmall,
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    });
-  }
-}
-
 class _ReaderErrorView extends StatelessWidget {
-  final ExcelReaderController controller;
+  final CsvReaderController controller;
 
   const _ReaderErrorView({required this.controller});
 
