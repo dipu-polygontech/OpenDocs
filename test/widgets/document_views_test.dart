@@ -253,6 +253,35 @@ void main() {
     expect(find.text('No documents found'), findsNothing);
   });
 
+  group('accessibility (ODF-P5-08)', () {
+    testWidgets('Home search action has a semantic label', (tester) async {
+      final handle = tester.ensureSemantics();
+      final f = ScreenFixture();
+      await f.mount(tester, true);
+      await f.complete(tester);
+
+      expect(tester.getSemantics(find.byIcon(Icons.search)).tooltip, 'Search documents');
+
+      handle.dispose();
+    });
+
+    testWidgets('Home with indexed content meets the labeled-tap-target guideline',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      final f = ScreenFixture();
+      f.documents.items = [sample];
+      f.recents.items = [
+        RecentDocumentModel(document: sample, lastOpenedAt: DateTime(2026))
+      ];
+      await f.mount(tester, true);
+      await f.complete(tester);
+
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+
+      handle.dispose();
+    });
+  });
+
   testWidgets('All Files forwards user search, category and sort choices',
       (tester) async {
     final f = ScreenFixture();

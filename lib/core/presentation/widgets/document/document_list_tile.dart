@@ -35,7 +35,9 @@ class DocumentListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      leading: Icon(document.category.icon, color: context.primary, size: 32),
+      leading: ExcludeSemantics(
+        child: Icon(document.category.icon, color: context.primary, size: 32),
+      ),
       title: Text(
         document.displayName,
         maxLines: 1,
@@ -52,6 +54,7 @@ class DocumentListTile extends StatelessWidget {
       ),
       trailing: PopupMenuButton<_DocumentAction>(
         icon: Icon(Icons.more_vert, color: context.onSurfaceVariant),
+        tooltip: 'More options for ${document.displayName}',
         onSelected: (action) => _handle(action),
         itemBuilder: (context) => [
           PopupMenuItem(

@@ -92,9 +92,14 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         Obx(
           () => controller.isSearching.value
-              ? IconButton(icon: const Icon(Icons.close), onPressed: controller.stopSearching)
+              ? IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Close search',
+                  onPressed: controller.stopSearching,
+                )
               : IconButton(
                   icon: const Icon(Icons.search),
+                  tooltip: 'Search in document',
                   // Text search needs a live document (see textSearcher's doc
                   // comment); disabled until onViewerReady supplies one.
                   onPressed: controller.textSearcher.value != null ? controller.startSearching : null,
@@ -103,10 +108,12 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
         Obx(
           () => IconButton(
             icon: Icon(controller.isFavorite ? Icons.favorite : Icons.favorite_border),
+            tooltip: controller.isFavorite ? 'Remove from favorites' : 'Add to favorites',
             onPressed: controller.toggleFavorite,
           ),
         ),
         PopupMenuButton<_ReaderAction>(
+          tooltip: 'More options',
           onSelected: (action) => _handle(action),
           itemBuilder: (context) => const [
             PopupMenuItem(value: _ReaderAction.share, child: Text('Share')),
@@ -168,10 +175,12 @@ class _SearchStatusBar extends StatelessWidget {
                 Expanded(child: Text(label, style: context.bodySmall)),
                 IconButton(
                   icon: const Icon(Icons.keyboard_arrow_up),
+                  tooltip: 'Previous match',
                   onPressed: searcher.hasMatches ? controller.goToPrevMatch : null,
                 ),
                 IconButton(
                   icon: const Icon(Icons.keyboard_arrow_down),
+                  tooltip: 'Next match',
                   onPressed: searcher.hasMatches ? controller.goToNextMatch : null,
                 ),
               ],
@@ -253,23 +262,30 @@ class _ThumbnailStrip extends StatelessWidget {
             final pageNumber = index + 1;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: GestureDetector(
-                onTap: () => controller.jumpToPage(pageNumber),
-                child: Obx(
-                  () => Container(
-                    width: 70,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: controller.currentPage.value == pageNumber ? context.primary : Colors.transparent,
-                        width: 2,
+              child: Obx(
+                () => Semantics(
+                  button: true,
+                  label: 'Page $pageNumber',
+                  selected: controller.currentPage.value == pageNumber,
+                  child: GestureDetector(
+                    onTap: () => controller.jumpToPage(pageNumber),
+                    child: ExcludeSemantics(
+                      child: Container(
+                        width: 70,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: controller.currentPage.value == pageNumber ? context.primary : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Expanded(child: PdfPageView(document: document, pageNumber: pageNumber, maximumDpi: 50)),
+                            Text('$pageNumber', style: context.labelSmall),
+                          ],
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Expanded(child: PdfPageView(document: document, pageNumber: pageNumber, maximumDpi: 50)),
-                        Text('$pageNumber', style: context.labelSmall),
-                      ],
                     ),
                   ),
                 ),

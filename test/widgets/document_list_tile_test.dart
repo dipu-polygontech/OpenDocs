@@ -114,4 +114,25 @@ void main() {
     expect(find.text('Open With'), findsOneWidget);
     expect(find.text('Remove from Recent'), findsOneWidget);
   });
+
+  group('accessibility (ODF-P5-08)', () {
+    testWidgets('overflow menu button has a document-specific semantic label', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpTile(tester, tileWith());
+
+      final node = tester.getSemantics(find.byIcon(Icons.more_vert));
+      expect(node.tooltip, 'More options for report.pdf');
+
+      handle.dispose();
+    });
+
+    testWidgets('meets the labeled-tap-target accessibility guideline', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpTile(tester, tileWith(onShare: () {}));
+
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+
+      handle.dispose();
+    });
+  });
 }

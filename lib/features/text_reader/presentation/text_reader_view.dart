@@ -141,16 +141,18 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         Obx(
           () => controller.isSearching.value
-              ? IconButton(icon: const Icon(Icons.close), onPressed: controller.stopSearching)
-              : IconButton(icon: const Icon(Icons.search), onPressed: controller.startSearching),
+              ? IconButton(icon: const Icon(Icons.close), tooltip: 'Close search', onPressed: controller.stopSearching)
+              : IconButton(icon: const Icon(Icons.search), tooltip: 'Search in document', onPressed: controller.startSearching),
         ),
         Obx(
           () => IconButton(
             icon: Icon(controller.isFavorite ? Icons.favorite : Icons.favorite_border),
+            tooltip: controller.isFavorite ? 'Remove from favorites' : 'Add to favorites',
             onPressed: controller.toggleFavorite,
           ),
         ),
         PopupMenuButton<_ReaderAction>(
+          tooltip: 'More options',
           onSelected: (action) => _handle(action),
           itemBuilder: (context) => const [
             PopupMenuItem(value: _ReaderAction.share, child: Text('Share')),
@@ -208,10 +210,12 @@ class _SearchStatusBar extends StatelessWidget {
             Expanded(child: Text(label, style: context.bodySmall)),
             IconButton(
               icon: const Icon(Icons.keyboard_arrow_up),
+              tooltip: 'Previous match',
               onPressed: controller.matches.isNotEmpty ? controller.goToPrevMatch : null,
             ),
             IconButton(
               icon: const Icon(Icons.keyboard_arrow_down),
+              tooltip: 'Next match',
               onPressed: controller.matches.isNotEmpty ? controller.goToNextMatch : null,
             ),
           ],

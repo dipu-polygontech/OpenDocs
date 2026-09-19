@@ -58,16 +58,18 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         Obx(
           () => controller.isSearching.value
-              ? IconButton(icon: const Icon(Icons.close), onPressed: controller.stopSearching)
-              : IconButton(icon: const Icon(Icons.search), onPressed: controller.startSearching),
+              ? IconButton(icon: const Icon(Icons.close), tooltip: 'Close search', onPressed: controller.stopSearching)
+              : IconButton(icon: const Icon(Icons.search), tooltip: 'Search cells', onPressed: controller.startSearching),
         ),
         Obx(
           () => IconButton(
             icon: Icon(controller.isFavorite ? Icons.favorite : Icons.favorite_border),
+            tooltip: controller.isFavorite ? 'Remove from favorites' : 'Add to favorites',
             onPressed: controller.toggleFavorite,
           ),
         ),
         PopupMenuButton<_ReaderAction>(
+          tooltip: 'More options',
           onSelected: (action) => _handle(action),
           itemBuilder: (context) => const [
             PopupMenuItem(value: _ReaderAction.share, child: Text('Share')),
@@ -116,10 +118,12 @@ class _SearchStatusBar extends StatelessWidget {
             Expanded(child: Text(label, style: context.bodySmall)),
             IconButton(
               icon: const Icon(Icons.keyboard_arrow_up),
+              tooltip: 'Previous match',
               onPressed: controller.matches.isNotEmpty ? controller.goToPrevMatch : null,
             ),
             IconButton(
               icon: const Icon(Icons.keyboard_arrow_down),
+              tooltip: 'Next match',
               onPressed: controller.matches.isNotEmpty ? controller.goToNextMatch : null,
             ),
           ],
@@ -146,17 +150,24 @@ class _SheetTabBar extends StatelessWidget {
           itemCount: controller.sheetNames.length,
           itemBuilder: (context, index) {
             final selected = index == controller.activeSheetIndex.value;
-            return InkWell(
-              onTap: () => controller.switchSheet(index),
-              child: Container(
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: selected ? context.primary : Colors.transparent, width: 2)),
-                ),
-                child: Text(
-                  controller.sheetNames[index],
-                  style: selected ? context.bodySmall?.copyWith(color: context.primary, fontWeight: FontWeight.bold) : context.bodySmall,
+            return Semantics(
+              button: true,
+              selected: selected,
+              label: 'Sheet: ${controller.sheetNames[index]}',
+              child: InkWell(
+                onTap: () => controller.switchSheet(index),
+                child: ExcludeSemantics(
+                  child: Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: selected ? context.primary : Colors.transparent, width: 2)),
+                    ),
+                    child: Text(
+                      controller.sheetNames[index],
+                      style: selected ? context.bodySmall?.copyWith(color: context.primary, fontWeight: FontWeight.bold) : context.bodySmall,
+                    ),
+                  ),
                 ),
               ),
             );

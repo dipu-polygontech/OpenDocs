@@ -10,8 +10,11 @@ class LoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: CircularProgressIndicator(
-        color: color ?? context.primary,
+      child: Semantics(
+        label: 'Loading',
+        child: CircularProgressIndicator(
+          color: color ?? context.primary,
+        ),
       ),
     );
   }
@@ -39,10 +42,13 @@ class LoadingViewTransparent extends StatelessWidget {
       height: height ?? MediaQuery.of(context).size.height,
       width: width ?? MediaQuery.of(context).size.width,
       child: Center(
-        child: CircularProgressIndicator(
-          backgroundColor: context.surface,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            loaderColor ?? context.primary,
+        child: Semantics(
+          label: 'Loading',
+          child: CircularProgressIndicator(
+            backgroundColor: context.surface,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              loaderColor ?? context.primary,
+            ),
           ),
         ),
       ),

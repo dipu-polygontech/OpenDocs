@@ -26,6 +26,7 @@ class HomeView extends GetView<HomeController> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
+            tooltip: 'Search documents',
             onPressed: () => Get.toNamed(AppRoutes.search),
           ),
         ],

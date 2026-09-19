@@ -23,6 +23,7 @@ class RecentsView extends GetView<RecentsController> {
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Clear all recent files',
             onPressed: () => _confirmClearAll(context),
           ),
         ],
