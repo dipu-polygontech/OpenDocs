@@ -141,11 +141,16 @@ class DocumentInteractionController extends GetxController {
       return false;
     }
     if (!await _storageAccess.hasAccess()) {
+      // ODF-P6-10: mirrors OnboardingController.allowAccess()'s handling of
+      // this exact status - a user who already hit "Don't ask again" gets no
+      // dialog from requestAccess() (permission_handler won't re-prompt), so
+      // that action would silently no-op without this branch.
+      final permanentlyDenied = await _storageAccess.isPermanentlyDenied();
       CustomSnackbar.error(
         'OpenReader no longer has access to this file.',
         title: document.displayName,
-        actionLabel: 'Grant Access',
-        onAction: () => _storageAccess.requestAccess(),
+        actionLabel: permanentlyDenied ? 'Open Settings' : 'Grant Access',
+        onAction: permanentlyDenied ? () => _storageAccess.openSettings() : () => _storageAccess.requestAccess(),
       );
       return false;
     }

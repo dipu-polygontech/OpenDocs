@@ -45,7 +45,9 @@ class FixtureRecents implements RecentRepository {
 
 class FixtureAccess implements StorageAccessService {
   bool granted = true;
+  bool permanentlyDenied = false;
   int requestCalls = 0;
+  int openSettingsCalls = 0;
 
   @override
   Future<bool> hasAccess() async => granted;
@@ -54,6 +56,15 @@ class FixtureAccess implements StorageAccessService {
   Future<bool> requestAccess() async {
     requestCalls++;
     return granted;
+  }
+
+  @override
+  Future<bool> isPermanentlyDenied() async => permanentlyDenied;
+
+  @override
+  Future<bool> openSettings() async {
+    openSettingsCalls++;
+    return true;
   }
 
   @override
@@ -215,6 +226,25 @@ void main() {
       await tester.tap(find.text('Grant Access'));
       await tester.pump();
       expect(access.requestCalls, 1);
+      await drainSnackbar(tester);
+    });
+
+    testWidgets('offers Open Settings instead of Grant Access when permission is permanently denied (ODF-P6-10)',
+        (tester) async {
+      access.granted = false;
+      access.permanentlyDenied = true;
+      await pumpWithSnackbarHost(tester);
+      await controller.openDocument(accessibleDocument);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('OpenReader no longer has access to this file.'), findsOneWidget);
+      expect(find.text('Grant Access'), findsNothing);
+      expect(find.text('Open Settings'), findsOneWidget);
+
+      await tester.tap(find.text('Open Settings'));
+      await tester.pump();
+      expect(access.openSettingsCalls, 1);
+      expect(access.requestCalls, 0);
       await drainSnackbar(tester);
     });
   });
