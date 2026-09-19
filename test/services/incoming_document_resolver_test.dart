@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 class FixtureDocumentRepository implements DocumentRepository {
   DocumentModel? indexed;
   bool failIndexing = false;
+  DocumentModel? fingerprintMatch;
 
   @override
   ResultFuture<DocumentModel> indexDocument(DocumentModel document) async {
@@ -20,6 +21,13 @@ class FixtureDocumentRepository implements DocumentRepository {
     indexed = document;
     return Right(document);
   }
+
+  @override
+  ResultFuture<DocumentModel?> findByFingerprint({
+    required String displayName,
+    required int sizeBytes,
+  }) async =>
+      Right(fingerprintMatch);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -88,6 +96,49 @@ void main() {
 
     expect(resolution.outcome, IncomingDocumentOutcome.inaccessible);
     expect(repository.indexed, isNull);
+  });
+
+  test('resolves to the existing indexed document instead of creating a duplicate row (ODF-P6-01)', () async {
+    final existing = DocumentModel(
+      id: '/storage/emulated/0/Download/report.pdf',
+      path: '/storage/emulated/0/Download/report.pdf',
+      displayName: 'report.pdf',
+      extension: 'pdf',
+      category: DocumentCategory.pdf,
+      sizeBytes: 4,
+      modifiedAt: DateTime(2026),
+      lastSeenAt: DateTime(2026),
+    );
+    repository.fingerprintMatch = existing;
+    final file = File(p.join(root.path, 'report.pdf'));
+    await file.writeAsBytes([1, 2, 3, 4]);
+
+    final resolution = await resolver.resolve(file.path);
+
+    expect(resolution.outcome, IncomingDocumentOutcome.success);
+    expect(resolution.document, existing);
+    // The cache-path copy must never be indexed as a second row.
+    expect(repository.indexed, isNull);
+  });
+
+  test('indexes normally when the fingerprint match is the same path already being resolved', () async {
+    final file = File(p.join(root.path, 'same.pdf'));
+    await file.writeAsBytes([9, 9]);
+    repository.fingerprintMatch = DocumentModel(
+      id: file.path,
+      path: file.path,
+      displayName: 'same.pdf',
+      extension: 'pdf',
+      category: DocumentCategory.pdf,
+      sizeBytes: 2,
+      modifiedAt: DateTime(2026),
+      lastSeenAt: DateTime(2026),
+    );
+
+    final resolution = await resolver.resolve(file.path);
+
+    expect(resolution.outcome, IncomingDocumentOutcome.success);
+    expect(repository.indexed?.path, file.path);
   });
 
   test('reports inaccessible when indexing itself fails', () async {

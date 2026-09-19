@@ -18,7 +18,17 @@ Full register with file:line evidence lives in `agentic/data/project-context/fea
 | UX | 10 | ODF-P6-28 through 37 |
 | CLEANUP (dead code) | 3 | ODF-P6-38, 39, 40 |
 
-Status of every finding is currently **PROPOSED** — none implemented yet. This document plans the remediation; per-slice `TASK-XXX.md` docs will be created under `agentic/data/project-context/features/FEATURE-OPENREADER-P6/tasks/` as each slice is actually implemented (matching `FEATURE-OPENREADER-P5`'s own precedent — task docs written at implementation time, not speculatively upfront).
+Status of every finding not yet listed as DONE below is **PROPOSED**. Per-slice `TASK-XXX.md` docs are created under `agentic/data/project-context/features/FEATURE-OPENREADER-P6/tasks/` as each slice is actually implemented (matching `FEATURE-OPENREADER-P5`'s own precedent — task docs written at implementation time, not speculatively upfront).
+
+**Slice progress:**
+- (a) CRITICAL — **DONE** (2026-09-19, [TASK-019.md](../project-context/features/FEATURE-OPENREADER-P6/tasks/TASK-019.md)): ODF-P6-01, 02, 03, plus ODF-P6-04 (HIGH, fixed opportunistically in the same file/method as ODF-P6-02).
+- (b) HIGH, permissions cluster — not started.
+- (c) HIGH, remainder — not started (ODF-P6-04 already done via slice (a)).
+- (d) UX quick wins — not started.
+- (e) New accessibility gaps — not started.
+- (f) GAP items — not started.
+- (g) Dead-code cleanup — not started.
+- (h) Test-coverage backfill — partially covered by slice (a)'s own new tests (rescan-guard, `findByFingerprint`, `AppSettingsRepositoryImpl` — its first-ever test coverage); the remaining rollup items in `FINDINGS.md` are still open.
 
 ## Design boundaries
 

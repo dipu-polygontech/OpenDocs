@@ -13,6 +13,21 @@ abstract class DocumentRepository {
   /// Unlike [rescan], this never removes any other row.
   ResultFuture<DocumentModel> indexDocument(DocumentModel document);
 
+  /// Looks up an already-indexed document with the same display name and
+  /// size (case-insensitive name match), or `null` if none exists.
+  ///
+  /// ODF-P6-01: used before indexing an incoming shared-in file, so a file
+  /// already in the index that's re-shared back into OpenReader (Android
+  /// copies shared content into an app-private cache path first) resolves
+  /// to its original, scan-rooted row instead of creating a second row at
+  /// the ephemeral cache path - which [rescan] would otherwise delete on
+  /// the next refresh, cascading into a silent loss of that file's
+  /// favorite/recent status.
+  ResultFuture<DocumentModel?> findByFingerprint({
+    required String displayName,
+    required int sizeBytes,
+  });
+
   ResultFuture<List<DocumentModel>> getDocuments({
     DocumentCategory? category,
     String? query,

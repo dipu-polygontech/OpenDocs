@@ -209,6 +209,30 @@ void main() {
       expect(oversizedController.status.value, StateStatus.error);
       expect(oversizedController.errorMessage.value, 'This document is too large to render safely on this device.');
     });
+
+    // ODF-P6-02: the raw-file-length ceiling must reject a huge file before
+    // it's ever read into memory - distinct from the ZIP-declared-size check
+    // above, which only runs after `readAsBytes()` already loaded the file.
+    test('surfaces the too-large error for a raw file exceeding maxBytes, without reading it into memory', () async {
+      final hugeFile = File(p.join(root.path, 'raw-huge.xlsx'));
+      final raf = await hugeFile.open(mode: FileMode.write);
+      await raf.truncate(ExcelReaderController.maxBytes + 1);
+      await raf.close();
+      final hugeDocument = DocumentModel(
+        id: hugeFile.path,
+        path: hugeFile.path,
+        displayName: 'raw-huge.xlsx',
+        extension: 'xlsx',
+        category: DocumentCategory.excel,
+        sizeBytes: await hugeFile.length(),
+        modifiedAt: DateTime(2026),
+        lastSeenAt: DateTime(2026),
+      );
+      final hugeController = ExcelReaderController(document: hugeDocument, recentRepository: recents, interactions: interactions);
+      await loaded(hugeController);
+      expect(hugeController.status.value, StateStatus.error);
+      expect(hugeController.errorMessage.value, 'This document is too large to render safely on this device.');
+    });
   });
 
   group('sheet switching', () {

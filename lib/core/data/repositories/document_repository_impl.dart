@@ -7,21 +7,33 @@ import '../../domain/usecase/usecase.dart';
 import '../../presentation/utils/task_runner.dart';
 import '../local/app_database.dart';
 import '../../../services/utilities/file_scanner_service.dart';
+import '../../../services/utilities/storage_access_service.dart';
 
 class DocumentRepositoryImpl implements DocumentRepository {
   final AppDatabase _appDatabase;
   final FileScannerService _scanner;
+  final StorageAccessService _storageAccess;
 
   DocumentRepositoryImpl({
     AppDatabase? appDatabase,
     FileScannerService? scanner,
+    StorageAccessService? storageAccess,
   })  : _appDatabase = appDatabase ?? AppDatabase.instance,
-        _scanner = scanner ?? FileScannerService.instance;
+        _scanner = scanner ?? FileScannerService.instance,
+        _storageAccess = storageAccess ?? StorageAccessService.instance;
 
   @override
   ResultFuture<List<DocumentModel>> rescan() {
     return runTask(() async {
       final found = await _scanner.scan();
+      // ODF-P6-01: an empty scan can mean either "no documents exist" or
+      // "storage access is currently unavailable" (permission revoked,
+      // volume unmounted, every root transiently unreadable) - `scan()`
+      // itself can't tell these apart (see FileScannerService._walk's own
+      // per-directory error handling). Only treat it as "nothing exists" -
+      // and wipe the index (cascading into every favorite/recent) - when
+      // access is confirmed still granted.
+      final safeToWipeOnEmpty = found.isEmpty ? await _storageAccess.hasAccess() : true;
       final db = await _appDatabase.database;
 
       await db.transaction((txn) async {
@@ -49,7 +61,7 @@ class DocumentRepositoryImpl implements DocumentRepository {
             where: 'path NOT IN ($placeholders)',
             whereArgs: found.map((d) => d.path).toList(),
           );
-        } else {
+        } else if (safeToWipeOnEmpty) {
           await txn.delete('documents');
         }
       });
@@ -68,6 +80,24 @@ class DocumentRepositoryImpl implements DocumentRepository {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
       return document;
+    });
+  }
+
+  @override
+  ResultFuture<DocumentModel?> findByFingerprint({
+    required String displayName,
+    required int sizeBytes,
+  }) {
+    return runTask(() async {
+      final db = await _appDatabase.database;
+      final rows = await db.query(
+        'documents',
+        where: 'display_name = ? COLLATE NOCASE AND size_bytes = ?',
+        whereArgs: [displayName, sizeBytes],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      return DocumentModel.fromMap(rows.first);
     });
   }
 

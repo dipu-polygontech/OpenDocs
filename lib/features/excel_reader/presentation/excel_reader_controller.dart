@@ -33,6 +33,13 @@ export '../../../core/presentation/widgets/cell_grid/cell_match.dart' show CellM
 /// Features) - a documented simplification (see the Phase 3 task doc), not a
 /// silent gap.
 class ExcelReaderController extends BaseController implements CellGridController {
+  /// ODF-P6-02: checked via `file.length()` before the file is ever read
+  /// into memory - `ZipSafetyGuard` only rejects on the ZIP's *declared*
+  /// uncompressed size, which runs after `readAsBytes()` has already loaded
+  /// the whole raw file, so a huge file was previously read in full before
+  /// any safety check could fire. Same posture as CSV/Text's own ceiling.
+  static const int maxBytes = 20 * 1024 * 1024;
+
   final DocumentModel document;
   final RecentRepository _recentRepository;
   final DocumentInteractionController _interactions;
@@ -98,7 +105,15 @@ class ExcelReaderController extends BaseController implements CellGridController
         if (hOffset is num && hOffset > 0) _initialHorizontalOffset = hOffset.toDouble();
       });
 
-      final bytes = await File(document.path).readAsBytes();
+      final file = File(document.path);
+      final length = await file.length();
+      if (length > maxBytes) {
+        status.value = StateStatus.error;
+        errorMessage.value = 'This document is too large to render safely on this device.';
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
       switch (ZipSafetyGuard.check(bytes)) {
         case ZipSafetyResult.tooLarge:
           status.value = StateStatus.error;

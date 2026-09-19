@@ -7,6 +7,7 @@ import 'package:openreader/core/domain/repositories/favorite_repository.dart';
 import 'package:openreader/core/domain/repositories/recent_repository.dart';
 import 'package:openreader/core/domain/usecase/usecase.dart';
 import 'package:openreader/core/presentation/controllers/document_interaction_controller.dart';
+import 'package:openreader/core/presentation/utils/state_status.dart';
 import 'package:openreader/core/presentation/utils/zip_safety_guard.dart';
 import 'package:openreader/features/word_reader/presentation/word_reader_controller.dart';
 import 'package:archive/archive.dart';
@@ -197,6 +198,7 @@ void main() {
       await loaded(controller);
       expect(controller.hasError.value, isFalse);
       expect(controller.validatedBytes, isNotNull);
+      expect(controller.status.value, StateStatus.success);
     });
 
     // ODF-P5-04: a real password-protected .docx isn't a ZIP at all - Office
@@ -224,6 +226,8 @@ void main() {
       expect(encryptedController.hasError.value, isTrue);
       expect(encryptedController.errorMessage.value, 'This document may be damaged or incomplete.');
       expect(encryptedController.validatedBytes, isNull);
+      // ODF-P6-04: status must reflect the failure like every other reader.
+      expect(encryptedController.status.value, StateStatus.error);
     });
 
     // ODF-P5-03: the ZIP-safety guard rejects an oversized declared
@@ -251,6 +255,33 @@ void main() {
       await loaded(oversizedController);
       expect(oversizedController.hasError.value, isTrue);
       expect(oversizedController.errorMessage.value, 'This document is too large to render safely on this device.');
+      expect(oversizedController.status.value, StateStatus.error);
+    });
+
+    // ODF-P6-02: the raw-file-length ceiling must reject a huge file before
+    // it's ever read into memory - distinct from the ZIP-declared-size check
+    // above, which only runs after `readAsBytes()` already loaded the file.
+    test('surfaces the too-large error for a raw file exceeding maxBytes, without reading it into memory', () async {
+      final hugeFile = File(p.join(root.path, 'raw-huge.docx'));
+      final raf = await hugeFile.open(mode: FileMode.write);
+      await raf.truncate(WordReaderController.maxBytes + 1);
+      await raf.close();
+      final hugeDocument = DocumentModel(
+        id: hugeFile.path,
+        path: hugeFile.path,
+        displayName: 'raw-huge.docx',
+        extension: 'docx',
+        category: DocumentCategory.word,
+        sizeBytes: await hugeFile.length(),
+        modifiedAt: DateTime(2026),
+        lastSeenAt: DateTime(2026),
+      );
+      final hugeController = WordReaderController(document: hugeDocument, recentRepository: recents, interactions: interactions);
+      await loaded(hugeController);
+      expect(hugeController.hasError.value, isTrue);
+      expect(hugeController.errorMessage.value, 'This document is too large to render safely on this device.');
+      expect(hugeController.validatedBytes, isNull);
+      expect(hugeController.status.value, StateStatus.error);
     });
   });
 

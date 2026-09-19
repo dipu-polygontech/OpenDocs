@@ -8,6 +8,7 @@ import 'package:openreader/core/domain/error/failure.dart';
 import 'package:openreader/core/domain/models/document_category.dart';
 import 'package:openreader/core/domain/models/document_model.dart';
 import 'package:openreader/services/utilities/file_scanner_service.dart';
+import 'package:openreader/services/utilities/storage_access_service.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -21,6 +22,14 @@ class FixtureScanner implements FileScannerService {
     if (fail) throw const FileSystemException('Scan failed');
     return documents;
   }
+}
+
+class FixtureAccess implements StorageAccessService {
+  bool granted = true;
+  @override
+  Future<bool> hasAccess() async => granted;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 DocumentModel document(String name,
@@ -45,6 +54,7 @@ void main() {
   late Directory temporary;
   late AppDatabase database;
   late FixtureScanner scanner;
+  late FixtureAccess access;
   late DocumentRepositoryImpl documents;
   late FavoriteRepositoryImpl favorites;
   late RecentRepositoryImpl recents;
@@ -57,7 +67,8 @@ void main() {
     database = AppDatabase(
         factory: databaseFactoryFfi, path: p.join(temporary.path, 'index.db'));
     scanner = FixtureScanner()..documents = [b, c, a];
-    documents = DocumentRepositoryImpl(appDatabase: database, scanner: scanner);
+    access = FixtureAccess();
+    documents = DocumentRepositoryImpl(appDatabase: database, scanner: scanner, storageAccess: access);
     favorites = FavoriteRepositoryImpl(appDatabase: database);
     recents = RecentRepositoryImpl(appDatabase: database);
     await success(documents.rescan());
@@ -138,6 +149,22 @@ void main() {
     scanner.documents = [];
     await success(documents.rescan());
     expect(await success(documents.getDocuments()), isEmpty);
+  });
+
+  test(
+      'does not wipe the index when a scan comes back empty while storage access is unavailable (ODF-P6-01)',
+      () async {
+    scanner.documents = [];
+    access.granted = false;
+    await success(documents.rescan());
+    expect(await success(documents.getDocuments()), [a, b, c]);
+  });
+
+  test('findByFingerprint matches by case-insensitive name and exact size (ODF-P6-01)',
+      () async {
+    expect(await success(documents.findByFingerprint(displayName: 'ALPHA.PDF', sizeBytes: 30)), a);
+    expect(await success(documents.findByFingerprint(displayName: 'Alpha.pdf', sizeBytes: 999)), isNull);
+    expect(await success(documents.findByFingerprint(displayName: 'nonexistent.pdf', sizeBytes: 30)), isNull);
   });
 
   test('favorites add, remove, toggle, ordering and idempotence', () async {

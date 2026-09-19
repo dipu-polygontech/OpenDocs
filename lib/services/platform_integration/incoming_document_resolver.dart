@@ -72,10 +72,29 @@ class IncomingDocumentResolver {
       return const IncomingDocumentResolution.inaccessible();
     }
 
+    final displayName = p.basename(path);
+
+    // ODF-P6-01: a file already in the index, re-shared back into
+    // OpenReader, arrives here at a fresh app-private cache copy of itself
+    // (that's how `receive_sharing_intent` hands off shared content) - not
+    // its original, scan-rooted path. Indexing that cache path as a new
+    // document would create a second row for the same file, which `rescan`
+    // then deletes on the next refresh, cascading into a silent loss of its
+    // favorite/recent status. Resolve to the existing row instead whenever
+    // one matches by name+size, so the cache path is never persisted.
+    final existingMatch = await _documentRepository.findByFingerprint(
+      displayName: displayName,
+      sizeBytes: stat.size,
+    );
+    final matched = existingMatch.fold((_) => null, (document) => document);
+    if (matched != null && matched.path != path) {
+      return IncomingDocumentResolution.success(matched);
+    }
+
     final document = DocumentModel(
       id: path,
       path: path,
-      displayName: p.basename(path),
+      displayName: displayName,
       extension: extension,
       category: category,
       sizeBytes: stat.size,

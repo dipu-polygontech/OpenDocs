@@ -29,6 +29,13 @@ import '../../../core/presentation/utils/zip_safety_guard.dart';
 /// [DocumentInteractionController] every other reader uses, exactly like
 /// `PdfReaderController`.
 class WordReaderController extends BaseController {
+  /// ODF-P6-02: checked via `file.length()` before the file is ever read
+  /// into memory - `ZipSafetyGuard` only rejects on the ZIP's *declared*
+  /// uncompressed size, which runs after `readAsBytes()` has already loaded
+  /// the whole raw file, so a huge file was previously read in full before
+  /// any safety check could fire. Same posture as CSV/Text's own ceiling.
+  static const int maxBytes = 20 * 1024 * 1024;
+
   final DocumentModel document;
   final RecentRepository _recentRepository;
   final DocumentInteractionController _interactions;
@@ -83,12 +90,23 @@ class WordReaderController extends BaseController {
       if (offset is num && offset > 0) _initialScrollOffset = offset.toDouble();
     });
     await _loadAndValidateBytes();
-    status.value = StateStatus.success;
+    // ODF-P6-04: mirrors every other reader (Excel/CSV/Text) setting
+    // `status` to reflect the outcome, not just `hasError` - previously this
+    // was unconditionally `success` even on a load failure.
+    status.value = hasError.value ? StateStatus.error : StateStatus.success;
   }
 
   Future<void> _loadAndValidateBytes() async {
     try {
-      final bytes = await File(document.path).readAsBytes();
+      final file = File(document.path);
+      final length = await file.length();
+      if (length > maxBytes) {
+        hasError.value = true;
+        errorMessage.value = 'This document is too large to render safely on this device.';
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
       switch (ZipSafetyGuard.check(bytes)) {
         case ZipSafetyResult.safe:
           _validatedBytes = bytes;
