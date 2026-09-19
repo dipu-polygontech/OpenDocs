@@ -49,12 +49,14 @@ Mirrors `FEATURE-OPENREADER-P5`'s own lettered-slice pattern — small, independ
 
 Not yet confirmed by the user — see Unresolved Questions.
 
-## Unresolved Specification Questions
+## Unresolved Specification Questions (resolved 2026-09-19)
 
-1. **ODF-P6-01 remediation scope** — dedup-on-index only, soft-delete-on-rescan only, or both? (Design boundaries section above lays out the tradeoff.)
-2. **Which slice(s) to implement now** — (a) only, (a)+(b)+(c), or the full lettered order through (h)?
-3. **Dead-code cleanup (g)** — include in this pass with per-item confirmation as each is reached, or defer entirely to a separate pass?
-4. **GAP slice (f) content items** — ODF-P6-24 (Privacy Policy text/link) and ODF-P6-23 (Author-metadata field) need real content/product input, not invented copy — defer these two specifically until that's available, even if the rest of slice (f) proceeds?
+1. **ODF-P6-01 remediation scope.** RESOLVED — dedup-on-index: match an incoming shared-in file against an already-indexed document before creating a new row, so the duplicate (and the downstream rescan-cascade deletion) never occurs. Soft-delete-on-rescan was not chosen; not in scope unless revisited later.
+2. **Which slice(s) to implement now.** RESOLVED — full lettered order (a) through (h).
+3. **Dead-code cleanup (g).** RESOLVED — included in this pass, with per-item approval as each item is reached, same process `TASK-017` used.
+4. **GAP slice (f) content items.** RESOLVED:
+   - ODF-P6-24 (About section): "GitHub" row links to `https://github.com/macdipu/OpenReader` (the repo's current home); "Privacy Policy" row links to a new `PRIVACY.md` written into the repo (local-only/no-server/no-analytics content, matching Settings' existing claim) via its GitHub blob URL.
+   - ODF-P6-23 (Author metadata): PDF + Office (docx/xlsx) only, sourced from each format's own metadata API; the row is omitted entirely when no author is present (matches how other optional File Information fields already behave) — not shown for CSV/Text, which have no such metadata.
 
 ## Validation and handoff
 Not started. Will be filled in per slice as `TASK-XXX.md` docs land, following `FEATURE-OPENREADER-P5`'s pattern (status/evidence per finding, `flutter analyze`/`flutter test` verification per slice).
