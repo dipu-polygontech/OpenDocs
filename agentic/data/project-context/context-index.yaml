@@ -32,6 +32,10 @@ features:
     path: agentic/data/project-context/features/FEATURE-OPENREADER-P4
     last_indexed_revision: null
   FEATURE-OPENREADER-P5:
-    status: TECHNICAL_READY     # Hardening scoping confirmed 2026-09-19 (all 4 SRS Unresolved Questions resolved, incl. ODF-P5-02 storage-access channel decision); task breakdown not yet done; no new dependency expected, no ADR planned
+    status: IN_PROGRESS         # All 8 actionable-now items done (TASK-013..018, incl. ODF-P5-08 accessibility 2026-09-19); only environment-blocked items (ODF-030/09/10/11) and the documented ODF-P5-12 tradeoff remain
     path: agentic/data/project-context/features/FEATURE-OPENREADER-P5
+    last_indexed_revision: null
+  FEATURE-OPENREADER-P6:
+    status: DRAFT                # Audit-remediation scoping only, 2026-09-19 (agentic/data/work-items/FEATURE-OPENREADER-P6.md); 4 Unresolved Specification Questions pending user decision before any implementation slice starts
+    path: agentic/data/project-context/features/FEATURE-OPENREADER-P6
     last_indexed_revision: null
