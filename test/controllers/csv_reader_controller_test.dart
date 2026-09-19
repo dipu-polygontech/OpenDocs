@@ -68,14 +68,19 @@ void main() {
 
   Future<CsvReaderController> loaded(CsvReaderController c) async {
     c.onInit();
-    // Parsing runs on a real background Isolate (see CsvReaderController's
-    // own doc comment on why), which has real spin-up latency unlike a
-    // fixture Future - poll instead of a single fixed delay.
+    // Stale-comment fix (flagged by the ODF-P6 audit): parsing runs
+    // synchronously on the *calling* isolate, not a background Isolate -
+    // see CsvReaderController's own doc comment for why `Isolate.run` was
+    // rejected. This polls purely because `onInit()` doesn't return the
+    // in-flight load's Future for the test to await directly.
     for (var i = 0; i < 100 && c.status.value.isBusy; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
     return c;
   }
+
+  // ODF-P6-16: search() now debounces its scan by 300ms.
+  Future<void> flushSearchDebounce() => Future<void>.delayed(const Duration(milliseconds: 350));
 
   setUp(() async {
     Get.testMode = true;
@@ -144,6 +149,7 @@ void main() {
     test('finds matching cells case-insensitively', () async {
       await loaded(controller);
       controller.search('alice');
+      await flushSearchDebounce();
       expect(controller.matches.length, 1);
       expect(controller.matches.first.row, 2);
       expect(controller.matches.first.column, 0);

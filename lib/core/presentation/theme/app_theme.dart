@@ -11,7 +11,11 @@ class AppTheme {
 
   static ThemeData _buildTheme({required bool isDark}) {
     Color c(AdaptiveColor ac) => isDark ? ac.dark : ac.light;
-    final textTheme = AppTextTheme.lightTextTheme;
+    // ODF-P6-14: was hardcoded to lightTextTheme regardless of isDark -
+    // harmless only because darkTextTheme is currently defined as an alias
+    // of lightTextTheme; fixed so dark mode picks up its own text styles
+    // the moment they diverge, with no separate change needed here then.
+    final textTheme = isDark ? AppTextTheme.darkTextTheme : AppTextTheme.lightTextTheme;
     final shadowAlpha = isDark ? 0.3 : 0.1;
 
     final colorScheme = ColorScheme(

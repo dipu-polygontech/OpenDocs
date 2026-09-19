@@ -219,25 +219,44 @@ class _BottomBar extends StatelessWidget {
 
   Future<void> _showJumpToPageDialog(BuildContext context) async {
     final controllerText = TextEditingController(text: controller.currentPage.value.toString());
+    // ODF-P6-33: an unparseable/out-of-range page number previously closed
+    // the dialog with zero feedback (int.tryParse returned null, the
+    // `if (page != null)` guard below just silently did nothing). Disables
+    // "Go" instead, with inline error text, until the input is valid.
     final page = await showDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Jump to page'),
-        content: TextField(
-          controller: controllerText,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(hintText: '1–${controller.pageCount.value}'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(int.tryParse(controllerText.text)),
-            child: const Text('Go'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final parsed = int.tryParse(controllerText.text);
+          final valid = parsed != null && parsed >= 1 && parsed <= controller.pageCount.value;
+          return AlertDialog(
+            title: const Text('Jump to page'),
+            content: TextField(
+              controller: controllerText,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: '1–${controller.pageCount.value}',
+                errorText: controllerText.text.isNotEmpty && !valid
+                    ? 'Enter a page between 1 and ${controller.pageCount.value}'
+                    : null,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: valid ? () => Navigator.of(context).pop(parsed) : null,
+                child: const Text('Go'),
+              ),
+            ],
+          );
+        },
       ),
     );
+    // ODF-P6-17: the one TextEditingController in the reader surface
+    // without a disposal path.
+    controllerText.dispose();
     if (page != null) unawaited(controller.jumpToPage(page));
   }
 }

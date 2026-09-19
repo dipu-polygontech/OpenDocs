@@ -146,20 +146,32 @@ class CsvReaderController extends BaseController implements CellGridController {
   void stopSearching() {
     isSearching.value = false;
     searchQuery.value = '';
+    _searchDebounce?.cancel();
     matches.clear();
     currentMatchIndex.value = -1;
   }
+
+  // ODF-P6-16: the O(rows*columns) scan below ran synchronously on every
+  // keystroke with no debounce, same risk as the Excel reader's identical
+  // search shape on a large sheet. `searchQuery` (read by the status bar)
+  // still updates immediately; only the scan itself is debounced.
+  Timer? _searchDebounce;
 
   /// Linear scan over the parsed rows (ODF-020's search feature) - the same
   /// shape as the Excel reader's cell search, since it operates on the
   /// identical `Sheet`/`Data` model.
   void search(String query) {
     searchQuery.value = query;
+    _searchDebounce?.cancel();
     if (query.isEmpty) {
       matches.clear();
       currentMatchIndex.value = -1;
       return;
     }
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () => _performSearch(query));
+  }
+
+  void _performSearch(String query) {
     final lower = query.toLowerCase();
     final found = <CellMatch>[];
     final rows = currentRows;
@@ -208,6 +220,7 @@ class CsvReaderController extends BaseController implements CellGridController {
   @override
   void onClose() {
     _positionSaveDebounce?.cancel();
+    _searchDebounce?.cancel();
     if (_sheet != null) {
       unawaited(_savePosition());
     }

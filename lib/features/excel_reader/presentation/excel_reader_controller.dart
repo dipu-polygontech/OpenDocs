@@ -172,6 +172,7 @@ class ExcelReaderController extends BaseController implements CellGridController
   void stopSearching() {
     isSearching.value = false;
     searchQuery.value = '';
+    _searchDebounce?.cancel();
     matches.clear();
     currentMatchIndex.value = -1;
   }
@@ -179,13 +180,25 @@ class ExcelReaderController extends BaseController implements CellGridController
   /// Linear scan over the active sheet's cells (ODF-016). Scoped to the
   /// active sheet only, not the whole workbook - matching how every other
   /// reader's search scopes to "this document", not "everything".
+  // ODF-P6-16: the O(rows*columns) scan below ran synchronously on every
+  // keystroke with no debounce - BRD §9.12 explicitly requires 100,000+-row
+  // sheets to stay usable, which this would visibly jank/freeze search-as-
+  // you-type on. `searchQuery` (read by the status bar) still updates
+  // immediately; only the scan itself is debounced.
+  Timer? _searchDebounce;
+
   void search(String query) {
     searchQuery.value = query;
+    _searchDebounce?.cancel();
     if (query.isEmpty) {
       matches.clear();
       currentMatchIndex.value = -1;
       return;
     }
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () => _performSearch(query));
+  }
+
+  void _performSearch(String query) {
     final lower = query.toLowerCase();
     final found = <CellMatch>[];
     final rows = currentRows;
@@ -234,6 +247,7 @@ class ExcelReaderController extends BaseController implements CellGridController
   @override
   void onClose() {
     _positionSaveDebounce?.cancel();
+    _searchDebounce?.cancel();
     if (_workbook != null) {
       unawaited(_savePosition());
     }

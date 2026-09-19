@@ -65,6 +65,9 @@ void main() {
     return c;
   }
 
+  // ODF-P6-16: search() now debounces its scan by 300ms.
+  Future<void> flushSearchDebounce() => Future<void>.delayed(const Duration(milliseconds: 350));
+
   setUp(() async {
     Get.testMode = true;
     root = await Directory.systemTemp.createTemp('openreader-excel-reader-');
@@ -239,6 +242,7 @@ void main() {
     test('switchSheet updates activeSheetIndex and clears an active search', () async {
       await loaded(controller);
       controller.search('Alice');
+      await flushSearchDebounce();
       expect(controller.matches, isNotEmpty);
 
       controller.switchSheet(1);
@@ -258,6 +262,7 @@ void main() {
     test('finds matching cells case-insensitively', () async {
       await loaded(controller);
       controller.search('alice');
+      await flushSearchDebounce();
       expect(controller.matches.length, 1);
       expect(controller.matches.first.row, 1);
       expect(controller.matches.first.column, 0);
@@ -275,6 +280,7 @@ void main() {
     test('goToNextMatch/goToPrevMatch wrap around', () async {
       await loaded(controller);
       controller.search('a'); // matches multiple cells case-insensitively
+      await flushSearchDebounce();
       final count = controller.matches.length;
       expect(count, greaterThan(1));
 

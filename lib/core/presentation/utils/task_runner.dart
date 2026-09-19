@@ -7,6 +7,7 @@ import 'package:openreader/core/presentation/utils/logger.dart';
 import 'package:openreader/core/presentation/widgets/snackbar/custom_snackbar.dart';
 import 'package:openreader/services/utilities/internet_connection_service.dart';
 import 'package:dartz/dartz.dart';
+import 'package:sqflite/sqflite.dart' show DatabaseException;
 
 /// A reusable generic function to handle potential exceptions in async tasks
 /// and map them to the [Either] type matching [FutureEither<T>].
@@ -39,10 +40,20 @@ ResultFuture<T> runTask<T>(
     final result = await action();
     return right(result);
   } catch (error, stackTrace) {
-    AppLogger.error('Task execution failed $error', [error, stackTrace]);
+    // ODF-P6-12: pass the real error/stackTrace as their own positional
+    // arguments - passing them wrapped in a List silently dropped the
+    // stack trace from every logged task failure.
+    AppLogger.error('Task execution failed $error', error, stackTrace);
     final errorMessage = AppErrorHandler.format(error);
 
-    // Depending on logic, map error strings/types to specific Failure variants
+    // ODF-P6-06: every repository routes local SQLite failures through here
+    // (sqflite), but every exception was mapped to ServerFailure - a
+    // misleading label for an offline, server-less app, and it ignored the
+    // LocalDatabaseQueryFailure type that exists for exactly this. Other
+    // failure kinds keep the ServerFailure fallback unchanged.
+    if (error is DatabaseException) {
+      return left(LocalDatabaseQueryFailure(errorMessage));
+    }
     return left(ServerFailure(errorMessage));
   }
 }

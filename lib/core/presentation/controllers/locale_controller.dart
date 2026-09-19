@@ -6,7 +6,10 @@ import '../../domain/repositories/app_settings_repository.dart';
 class LocaleController extends GetxController {
   final AppSettingsRepository _settingsRepository = AppSettingsRepositoryImpl();
 
-  final RxString currentLangCode = 'bn'.obs;
+  // ODF-P6-13: matches _loadLocale()'s own fallback-when-nothing-saved
+  // ('en') - a mismatched default here caused a visible cold-start flash
+  // (renders in Bengali once, then reassembles to the real locale).
+  final RxString currentLangCode = 'en'.obs;
 
   @override
   void onInit() {

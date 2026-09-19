@@ -26,6 +26,13 @@ class FilesController extends BaseController {
   final searchQuery = ''.obs;
   bool _retryScan = false;
 
+  // ODF-P6-05: every call to load() (directly, or via selectCategory/
+  // setSort/setSearchQuery) races every other in-flight call - a slower
+  // response for an earlier, broader query could otherwise overwrite a
+  // faster response for a later, narrower one. Only the most recently
+  // started call's result is ever applied.
+  int _loadRequestId = 0;
+
   Future<void> retry() => _retryScan ? refresh() : load();
 
   final hasAccess = true.obs;
@@ -37,10 +44,12 @@ class FilesController extends BaseController {
   }
 
   Future<void> load() async {
+    final requestId = ++_loadRequestId;
     _retryScan = false;
     errorMessage.value = null;
     status.value = StateStatus.loading;
     hasAccess.value = await _storageAccess.hasAccess();
+    if (requestId != _loadRequestId) return;
     if (!hasAccess.value) {
       status.value = StateStatus.empty;
       return;
@@ -51,6 +60,7 @@ class FilesController extends BaseController {
       query: searchQuery.value,
       sort: sortMode.value,
     );
+    if (requestId != _loadRequestId) return;
     result.fold(
       (failure) => handleFailure(failure),
       (list) {

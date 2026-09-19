@@ -141,14 +141,14 @@ void main() {
     expect(repository.indexed?.path, file.path);
   });
 
-  test('reports inaccessible when indexing itself fails', () async {
+  test('reports indexingFailed (not inaccessible) when indexing itself fails (ODF-P6-07)', () async {
     repository.failIndexing = true;
     final file = File(p.join(root.path, 'shared.txt'));
     await file.writeAsBytes([1]);
 
     final resolution = await resolver.resolve(file.path);
 
-    expect(resolution.outcome, IncomingDocumentOutcome.inaccessible);
+    expect(resolution.outcome, IncomingDocumentOutcome.indexingFailed);
     expect(resolution.document, isNull);
   });
 }

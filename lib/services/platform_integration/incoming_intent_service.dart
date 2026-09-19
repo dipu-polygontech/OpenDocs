@@ -72,6 +72,10 @@ class IncomingIntentService {
       case IncomingDocumentOutcome.inaccessible:
         // BRD §13 "File missing".
         CustomSnackbar.error('This file may have been moved or deleted.');
+      case IncomingDocumentOutcome.indexingFailed:
+        // ODF-P6-07: distinct from "file missing" - the file itself was
+        // readable, indexing it just failed.
+        CustomSnackbar.error("Couldn't open this file right now. Please try again.");
     }
   }
 

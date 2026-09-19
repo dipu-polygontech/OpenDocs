@@ -23,8 +23,8 @@ Status of every finding not yet listed as DONE below is **PROPOSED**. Per-slice 
 **Slice progress:**
 - (a) CRITICAL — **DONE** (2026-09-19, [TASK-019.md](../project-context/features/FEATURE-OPENREADER-P6/tasks/TASK-019.md)): ODF-P6-01, 02, 03, plus ODF-P6-04 (HIGH, fixed opportunistically in the same file/method as ODF-P6-02).
 - (b) HIGH, permissions cluster — **DONE** (2026-09-19, [TASK-020.md](../project-context/features/FEATURE-OPENREADER-P6/tasks/TASK-020.md)): ODF-P6-10 fixed; ODF-P6-09/11 re-assessed and deferred to slice (g) (both are dead-code-only, confirmed against the storage-access ADR).
-- (c) HIGH, remainder — not started (ODF-P6-04 already done via slice (a); ODF-P6-15 moved into the slice (g) deferral alongside ODF-P6-11, same dead file).
-- (d) UX quick wins — not started.
+- (c) HIGH, remainder — **DONE** (2026-09-19, [TASK-021.md](../project-context/features/FEATURE-OPENREADER-P6/tasks/TASK-021.md)): ODF-P6-05/06/07/12/13/14/16/17 fixed; ODF-P6-08 re-assessed and downgraded (unreachable in production — no UI calls `toggleLocale()`). ODF-P6-33 (slice d) and one test-coverage rollup item fixed opportunistically in the same touch.
+- (d) UX quick wins — ODF-P6-33 already done via slice (c); ODF-P6-28/29/31/32/36/37 remain.
 - (e) New accessibility gaps — not started.
 - (f) GAP items — not started.
 - (g) Dead-code cleanup — not started.

@@ -20,6 +20,13 @@ class SearchDocumentsController extends BaseController {
 
   Timer? _debounce;
 
+  // ODF-P6-05: debouncing the 250ms trigger doesn't order the responses - if
+  // an earlier search is slow enough that a second one fires and resolves
+  // first, whichever DB read finishes last previously won regardless of
+  // which term is actually current. Only the most recently started search's
+  // result is ever applied.
+  int _searchRequestId = 0;
+
   void onQueryChanged(String value) {
     query.value = value;
     _debounce?.cancel();
@@ -42,8 +49,10 @@ class SearchDocumentsController extends BaseController {
   }
 
   Future<void> _search(String term) async {
+    final requestId = ++_searchRequestId;
     status.value = StateStatus.loading;
     final result = await _documentRepository.getDocuments(query: term);
+    if (requestId != _searchRequestId) return;
     result.fold(
       (failure) => handleFailure(failure),
       (list) {

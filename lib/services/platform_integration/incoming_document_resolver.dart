@@ -17,11 +17,18 @@ enum IncomingDocumentOutcome {
   /// PowerPoint, which has no reader yet either (`FEATURE-OPENREADER-P3`).
   unsupported,
 
-  /// The path doesn't exist or couldn't be read/indexed (BRD §13 "File
+  /// The path doesn't exist or couldn't be `stat()`-ed (BRD §13 "File
   /// missing"/"Corrupted file" - treated the same here since, at this point,
   /// there is no original index entry to distinguish "deleted" from "never
   /// existed").
   inaccessible,
+
+  /// ODF-P6-07: the file exists and was read successfully, but indexing it
+  /// (a database write) failed - a genuinely different, more honest state
+  /// than [inaccessible], which is about the file itself, not the database.
+  /// Previously collapsed into `inaccessible`, misreporting a real DB
+  /// failure as "this file may have been moved or deleted."
+  indexingFailed,
 }
 
 class IncomingDocumentResolution {
@@ -33,6 +40,7 @@ class IncomingDocumentResolution {
   const IncomingDocumentResolution.success(DocumentModel document) : this._(document, IncomingDocumentOutcome.success);
   const IncomingDocumentResolution.unsupported() : this._(null, IncomingDocumentOutcome.unsupported);
   const IncomingDocumentResolution.inaccessible() : this._(null, IncomingDocumentOutcome.inaccessible);
+  const IncomingDocumentResolution.indexingFailed() : this._(null, IncomingDocumentOutcome.indexingFailed);
 }
 
 /// Resolves a raw file path handed to OpenReader by another app (BRD §7.7,
@@ -104,7 +112,7 @@ class IncomingDocumentResolver {
 
     final result = await _documentRepository.indexDocument(document);
     return result.fold(
-      (failure) => const IncomingDocumentResolution.inaccessible(),
+      (failure) => const IncomingDocumentResolution.indexingFailed(),
       (indexed) => IncomingDocumentResolution.success(indexed),
     );
   }
